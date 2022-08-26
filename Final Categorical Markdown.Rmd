@@ -1,0 +1,670 @@
+---
+title: "Final Project Code, Ellen Cho and Jason Proctor"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library("readxl")  
+```
+
+
+#Read Data  
+```{r}
+data= read_excel("C:/Users/grfri/Google Drive/Spring 2022/Multivariate/johnson_wichern_data/flying-etiquette.xlsx")  
+
+
+
+#Remove observations from subjects who have never flown  
+
+data = data[!data$`How often do you travel by plane?` =="Never",]  
+
+
+
+#Pull out baby_rude data 
+
+baby = data[,c('Gender', 
+               'Do you have any children under 18?', 
+               'In general, is itrude to bring a baby on a plane?',
+               'Age',
+               'Household Income',
+               'How often do you travel by plane?')]   
+
+
+
+#Remove rows with NA from dataset   
+
+baby_cleaned = baby[complete.cases(baby),]  
+
+
+
+#Set variables   
+
+library(tidyverse) 
+
+baby_cleaned = mutate(baby_cleaned,   
+                      
+                      children18 = ifelse(baby_cleaned$`Do you have any children under 18?` 
+                                          == 'Yes', 1, 0)   ,   
+                      
+                      babyrude = ifelse(baby_cleaned$`In general, is itrude to bring a baby on a plane?`
+== 'No, not at all rude', 0, 1),  
+                      
+                      Gender = ifelse(baby_cleaned$Gender 
+== 'Female', 1, 0),  
+                      
+                      Income = factor(baby_cleaned$`Household Income`,
+                                    levels = c("$0 - $24,999",
+                                               "$25,000 - $49,999",
+                                               "$50,000 - $99,999",
+                                               "$100,000 - $149,999",
+                                               "150000")),  
+                      
+                      Frequency= factor(baby_cleaned$'How often do you travel by plane?', 
+                                        levels = c("Never", 
+                                                   "Once a year or less", 
+                                                   "Once a month or less", 
+                                                   "A few times per month", 
+                                                   "A few times per week", 
+                                                   "Every day")))  
+
+
+
+baby_cleaned$Income = as.numeric(baby_cleaned$Income)  
+
+baby_cleaned$Frequency = as.numeric(baby_cleaned$Frequency)  
+
+
+
+#Change into ordinal   
+
+age = as.factor(baby_cleaned$Age)   
+
+levels(age) <- list(A="18-29", B="30-44", C="45-60", D= "> 60")  
+
+age = as.numeric(age)  
+
+baby_cleaned$Age = age   
+```
+
+
+#Correlation matrix 
+```{r}
+cormatrix = cbind(baby_cleaned$Age, baby_cleaned$Income,  baby_cleaned$Frequency)  
+
+colnames(cormatrix) =list("Age", "Income", "Frequency of flying")  
+
+cor(cormatrix)  
+```
+
+
+Logistic Regression 1: Is It Rude To Bring A Baby On A Flight?
+###Backward Stepwise Regression to see if any of the parameters are significant.  
+
+#Pull out data  
+```{r}
+rude_babies = 
+  data[,c('In general, is itrude to bring a baby on a plane?',
+                      'Age', 
+                      'Do you have any children under 18?', 
+                      'Gender'  
+                      , 'Is itrude to move to an unsold seat on a plane?',
+                      'Is it rude to wake a passenger up if you are trying to go to the bathroom?',  
+                      'In general, is it rude to knowingly bring unruly children on a plane?', 
+                      'Is it rude to ask someone to switch seats with you in order to be closer to friends?',  
+                      'How often do you travel by plane?', 
+                      'Is itrude to ask someone to switch seats with you in order to be closer to family?',   
+                      'Is itrude to wake a passenger up if you are trying to walk around?', 
+                      'Is itrude to recline your seat on a plane?')]  
+
+
+
+## Remove NA  
+
+rude_babies = rude_babies[complete.cases(rude_babies),]  
+
+
+
+##Set variables  
+
+#Change into ordinal  
+
+rude_babies$Age = as.factor(rude_babies$Age)    
+
+levels(rude_babies$Age) <- list(A="18-29", B="30-44", C="45-60", D= "> 60")   
+
+rude_babies$Age = as.numeric(rude_babies$Age)   
+
+
+
+#Change into binary  
+
+rude_babies$Gender = ifelse(rude_babies$Gender == 'Female', 1, 0)  
+
+rude_babies$`Do you have any children under 18?` = 
+  ifelse(rude_babies$`Do you have any children under 18?` == 'Yes', 1, 0)  
+
+rude_babies$`In general, is itrude to bring a baby on a plane?` =
+  ifelse(rude_babies$`In general, is itrude to bring a baby on a plane?` ==
+           'No, not at all rude', 0, 1)  
+
+rude_babies$`Is itrude to move to an unsold seat on a plane?` =
+  ifelse(rude_babies$`Is itrude to move to an unsold seat on a plane?` ==
+           "No, not rude at all", 0, 1)  
+
+rude_babies$`Is it rude to wake a passenger up if you are trying to go to the bathroom?` = 
+  ifelse(rude_babies$`Is it rude to wake a passenger up if you are trying to go to the bathroom?` == 
+           "No, not at all rude", 0, 1)  
+
+rude_babies$`In general, is it rude to knowingly bring unruly children on a plane?` = 
+  ifelse(rude_babies$`In general, is it rude to knowingly bring unruly children on a plane?` ==
+           "No, not at all rude", 0, 1)  
+
+rude_babies$`Is it rude to ask someone to switch seats with you in order to be closer to friends?` = 
+  ifelse(rude_babies$`Is it rude to ask someone to switch seats with you in order to be closer to friends?` ==
+           "No, not at all rude", 0, 1)  
+
+rude_babies$`How often do you travel by plane?` =
+  ifelse(rude_babies$`How often do you travel by plane?`== 
+                                                           "Never" |
+           rude_babies$`How often do you travel by plane?` == 
+                                                           "Once a year or less", 0, 1)  
+
+rude_babies$`Is itrude to ask someone to switch seats with you in order to be closer to family?` = 
+  ifelse(rude_babies$`Is itrude to ask someone to switch seats with you in order to be closer to family?` ==
+           "No, not at all rude", 0, 1)  
+
+rude_babies$`Is itrude to wake a passenger up if you are trying to walk around?` = 
+  ifelse(rude_babies$`Is itrude to wake a passenger up if you are trying to walk around?` ==
+           "No, not at all rude", 0, 1)  
+
+rude_babies$`Is itrude to recline your seat on a plane?` =
+  ifelse(rude_babies$`Is itrude to recline your seat on a plane?` ==
+           "No, not rude at all", 0, 1)  
+
+
+
+##GLM  
+
+rude_babies_fit = glm(rude_babies$`In general, is itrude to bring a baby on a plane?` ~ ., 
+                      family = binomial, data = rude_babies)  
+
+
+
+##Stepwise  
+
+library(MASS)  
+
+stepwise = stepAIC(rude_babies_fit, direction = "backward")  
+
+
+
+coefficients(stepwise)  
+
+
+
+#Age  
+
+exp(0.2832798) 
+#If younger, estimated odds of finding babies rude = 32.7% higher.  
+
+#Children under 18 
+
+exp(1.0099736) 
+# Estimated odds of passengers who did not have young children were 
+#2.7 times higher than those that did 
+
+#Gender  
+
+exp(0.7493112) #If male, estimated odds of finding babies rude = twice that of females.  
+
+#Wake passenger to go to bathroom  
+
+exp(0.3661117) 
+#If you believe it is rude to wake up a passenger to go to the bathroom,
+#estimated odds of finding bringing babies rude is 44% higher than if you do not.  
+
+#Rude to knowingly bring unruly children?  
+
+exp(3.3214522) #If you think it is rude to knkowingly bring unruly children on a plane, 
+#the estimated odds of finding bringing babies rude is 27.7 times that of people who do not.  
+
+#Switch seats to be closer to family  
+
+exp(0.6996614) #Estimated odds of finding bringing babies rude is twice as high
+#if you believe it is rude to switch seats to be closer to family than not.  
+
+#Recline seat  
+
+exp(0.2733699) #If you believe it is rude to recline, 
+#the estimated odds of finding babies rude is 31.4% higher than if you do not.   
+```
+
+
+#Final Baby GLM:  
+```{r}
+babyrude = rude_babies$`In general, is itrude to bring a baby on a plane?`  
+
+age = rude_babies$Age  
+
+gender = rude_babies$Gender  
+
+wake = 
+  rude_babies$`Is it rude to wake a passenger up if you are trying to go to the bathroom?`  
+
+children = 
+  rude_babies$`In general, is it rude to knowingly bring unruly children on a plane?`  
+
+recline_rude = rude_babies$`Is itrude to recline your seat on a plane?`  
+
+closer_family = 
+  rude_babies$`Is itrude to ask someone to switch seats with you in order to be closer to family?`  
+
+children18 = rude_babies$`Do you have any children under 18?` 
+
+
+
+babyrude_fit = glm(babyrude ~ age + gender + wake + children + recline_rude + closer_family 
+                   + children18, 
+                   family = binomial, data = rude_babies)  
+
+summary(babyrude_fit) 
+
+#Recline_rude is included in the stepwise regression model, but its p-value is 0.1052  
+```
+
+
+
+################ Plotting Baby GLM ################ 
+```{r}
+stepwise_glm = ggplot(data.frame(x = c(-20, 30)), aes(x = x)) + 
+  
+  stat_function(fun = function(x) {exp(-3.0048714  + 0.3661117 *x)/(1 + exp(-3.0048714  
+                                                                            + 0.3661117 *x))}, color = "black", lwd = 1) + 
+  
+  stat_function(fun = function(x) 
+    {exp(-3.0048714  + 3.3214522 *x)/(1 + exp(-3.0048714  + 3.3214522  *x))}, color = "red", lwd = 1) + 
+  
+  stat_function(fun = function(x) 
+    {exp(-3.0048714  + 0.2733699 *x)/(1 + exp(-3.0048714  + 0.2733699  *x))}, color = "blue", lwd = 1) + 
+  
+  stat_function(fun = function(x) 
+    {exp(-3.0048714  + 0.6996614*x)/(1 + exp(-3.0048714  + 0.6996614 *x))}, color = "forestgreen", lwd = 1) + 
+  
+  stat_function(fun = function(x) 
+    {exp(-3.0048714  - 0.2832798 *x)/(1 + exp(-3.0048714 - 0.2832798  *x))}, color = "purple", lwd = 1) + 
+  
+  stat_function(fun = function(x) 
+    {exp(-3.0048714  - 0.7493112 *x)/(1 + exp(-3.0048714  - 0.7493112  *x))}, color = "goldenrod", lwd = 1) + 
+  
+  stat_function(fun = function(x) 
+    {exp(-3.0048714  - 1.0099736 *x)/(1 + exp(-3.0048714  - 1.0099736  *x))}, color = "cyan", lwd = 1) + 
+  
+  annotate("text", x = 26, y = 0.9, label = "Wake passenger", color = "black") + 
+  
+  annotate("text", x = 5, y = 1.03, label = "Unruly Children", color = "red") + 
+  
+  annotate("text", x = 21, y = 0.75, label = "Recline seat", color = "blue") + ylab("Probability") + 
+  
+  annotate("text", x = 20, y = 1.03, label = "Switch seat family", color = "forestgreen") + 
+  
+  annotate("text", x = -19, y = 0.85, label = "Age", color = "purple") + 
+  
+  annotate("text", x = -12, y = 0.95, label = "Gender", color = "goldenrod") + 
+  
+  annotate("text", x = -12, y = 1.03, label = "Children18", color = "cyan") 
+
+stepwise_glm 
+```
+
+
+################ ROC curve Baby GLM ################ 
+```{r}
+library(pROC)  
+
+
+
+rocplot <- roc(babyrude ~ fitted(babyrude_fit), data= rude_babies)  
+
+plot.roc(rocplot, legacy.axes=TRUE, colorize=T) 
+# Specificity on x axis if legacy.axes=F  
+
+
+
+thePar <- par(pty = "s")  
+
+plot.roc(rocplot, legacy.axes = TRUE, asp = F)  
+
+auc(rocplot)  
+
+
+
+## tidyverse  
+
+model <- data.frame(outcome = babyrude,   
+                    
+                    predicted = predict(babyrude_fit, rude_babies, type = "response"))   
+
+
+
+library(plotROC)  
+
+ggplot(model, aes(d = outcome, m = predicted)) +   
+  
+  geom_roc() +   
+  
+  style_roc(xlab = "1-Specificity",  
+            
+            ylab ="Sensitivity",  
+            
+            minor.breaks = c(seq(0, 0.1, by = 0.02), seq(0.9, 1, by = 0.02))) +  
+  
+  ggtitle(" 'Is It Rude To Bring A Baby On A Flight?' ROC Curve") +  
+  
+  theme(aspect.ratio=1) +  
+  
+  geom_abline(slope = 1, color = "grey92")  
+
+auc(rocplot) # auc = area under ROC curve = concordance index  
+
+
+
+##AUC: 0.7371 
+```
+
+
+################ Is Reclining You Seat Rude? GLM 2 ################  
+```{r}
+#Make table for recline  
+
+recline_data = data[,c('Gender', 
+                       'Age', 
+                       'How tall are you?', 
+                       'How often do you travel by plane?', 
+                       'Do you ever recline your seat when you fly?',
+                       'Is itrude to recline your seat on a plane?' )]  
+
+
+
+#Remove rows with NA from dataset  
+
+recline_data = recline_data[complete.cases(recline_data),]  
+
+
+
+#Define variables  
+
+rec_freq = recline_data$`How often do you travel by plane?`  
+
+rude_rec = recline_data$`Is itrude to recline your seat on a plane?`  
+
+doyourecline = recline_data$`Do you ever recline your seat when you fly?`  
+
+
+
+#Change variables  
+
+recline_data$Gender = ifelse(recline_data$Gender == 'Female', 1, 0)  
+
+
+
+recline_data$Age = as.factor(recline_data$Age)    
+
+levels(recline_data$Age) <- list(A="18-29", B="30-44", C="45-60", D= "> 60")   
+
+recline_data$Age = as.numeric(recline_data$Age)   
+
+
+
+rec_freq = ifelse(rec_freq == "Never" | rec_freq == "Once a year or less", 0, 1)  
+
+recline_data$`How often do you travel by plane?` = rec_freq  
+
+
+
+doyourecline = ifelse(doyourecline == "Never", 0, 1)  
+
+recline_data$`Do you ever recline your seat when you fly?` = doyourecline  
+
+
+
+rude_rec = ifelse(rude_rec == "No, not rude at all", 0, 1)  
+
+recline_data$`Is itrude to recline your seat on a plane?` = rude_rec  
+
+
+
+#Separate tall into feet and inches  
+
+library(tidyr)  
+
+recline_data = separate(data = recline_data, 
+                        col = 'How tall are you?', 
+                        into = c("feet", "inches"), sep = "\\'")  
+
+
+
+#Remove Under 5' and Above 6' since no longer continuous  
+
+recline_data$height = ifelse(recline_data$feet == "6", 1, 0) 
+#If feet = 6 = 1, if not (if 5) = 0  
+
+
+
+#GLM 
+
+fit = glm(`Is itrude to recline your seat on a plane?`~ 
+            Age + 
+            Gender + 
+            height + 
+            rec_freq + 
+            doyourecline, 
+          family = binomial, data = recline_data)   
+
+summary(fit)   
+
+stepwise1 = stepAIC(fit, direction = "backward")
+
+#Stepwise keeps Age, Rec_freq, and doyourecline
+
+fit1 = fit = glm(`Is itrude to recline your seat on a plane?`~ 
+                   Age + 
+                   rec_freq + 
+                   doyourecline, family = binomial, data = recline_data)
+
+summary(fit1)
+#Coefficients barely changed, Age is still insignificant
+
+exp(0.47841) #Estimated odds of subjects who fly more frequently (more than once a year) 
+#are 61.4% greater than those who do not.  
+
+exp(2.17059) #Those who do not recline their seats 
+#are 8.76 times more likely to find reclining seats rude. 
+
+
+model1 <- data.frame(outcome = recline_data$`Is itrude to recline your seat on a plane?`,   
+                    
+                    predicted = predict(fit1,recline_data, type = "response"))   
+
+
+
+ggplot(model1, aes(d = outcome, m = predicted)) +   
+  
+  geom_roc() +   
+  
+  style_roc(xlab = "1-Specificity",  
+            
+            ylab ="Sensitivity",  
+            
+            minor.breaks = c(seq(0, 0.1, by = 0.02), seq(0.9, 1, by = 0.02))) +  
+  
+  ggtitle(" 'Is It Rude To Recline Your Seat On A Plane?' ROC Curve") +  
+  
+  theme(aspect.ratio=1) +  
+  
+  geom_abline(slope = 1, color = "grey92")  
+rocplot1 <- roc(`Is itrude to recline your seat on a plane?` ~
+                  fitted(fit1), data= recline_data) 
+auc(rocplot1) # auc = 0.6995
+
+```
+
+
+Contingecy Tables:
+
+
+################ Contingency table between rudeness of reclining and rudeness of  baby ################ 
+```{r}
+library(PropCIs) 
+
+
+
+
+
+RecB1 = data[,c('Is itrude to recline your seat on a plane?',
+                'In general, is itrude to bring a baby on a plane?')]   
+
+RecB1 = RecB1[complete.cases(RecB1),]  
+
+
+
+RecB1$`Is itrude to recline your seat on a plane?` = 
+  ifelse(RecB1$`Is itrude to recline your seat on a plane?` ==
+           "No, not rude at all", "No", "Yes") 
+
+RecB1$`In general, is itrude to bring a baby on a plane?` = 
+  ifelse(RecB1$`In general, is itrude to bring a baby on a plane?`  == 
+           'No, not at all rude', "No", "Yes") 
+
+
+
+RecB2 = cbind(RecB1$`Is itrude to recline your seat on a plane?`, 
+              RecB1$`In general, is itrude to bring a baby on a plane?`) 
+
+colnames(RecB2) <- c("Reclining_Rude", "Baby_Rude")  
+
+cont= xtabs(~  Baby_Rude + Reclining_Rude,   RecB2)  
+
+cont #Contingency Table  
+
+mcnemar.test(cont, correct=F) #test statistic 24.925, df = 1, p-value = 5.96e-07 
+
+
+
+diffpropci.Wald.mp(127,220,849, 0.95)  
+
+
+
+###(n12, n21, n , ci level) #Wald confidence difference b/w marginals  
+
+####Probability of finding a baby on a plane rude is 6-15% higher 
+###than finding reclining rude  
+```
+
+
+#################### Tall vs Recline #################### 
+```{r}
+library(tidyverse) 
+
+
+
+recline = data[,c('How tall are you?', 'Is itrude to recline your seat on a plane?')] 
+
+recline = recline[complete.cases(recline),] 
+
+
+
+recline = separate(data = recline, 
+                   col = 'How tall are you?', 
+                   into = c("feet", "inches"), sep = "\\'") 
+
+unique(recline$feet) 
+# R split the tall column into feet and inches. Feet includes 6 feet, 5 feet, and 'Under 5 feet' 
+
+
+
+recline$height = 
+  ifelse(recline$feet ==
+           "6", "Tall", "Short") 
+# Make 6 feet = Tall while anything else (5 feet and Under 5 feet) = Short 
+
+
+
+recline$`Is itrude to recline your seat on a plane?` =
+  ifelse(recline$`Is itrude to recline your seat on a plane?` ==
+           "No, not rude at all", "No", "Yes") 
+
+
+
+#Contingency table with being "Tall" with finding reclining rude.   
+
+recline2 = cbind(recline$height, recline$`Is itrude to recline your seat on a plane?`) 
+
+colnames(recline2) = c("Height", "Recline_Rude") 
+
+recline_cont = xtabs(~ Height + Recline_Rude, recline2) 
+
+recline_cont 
+
+
+
+Odds_Ratio= (420*65)/(287*82)  
+
+Odds_Ratio #The odds of finding reclining rude is 16% higher if you are tall than if you are short.   
+
+
+
+chisq.test(recline_cont, correct=F) # Chi-squared statistic: 0.65953, df = 1, p-value = 0.4167 
+#--> not significant 
+
+
+
+```
+
+################ Rude to speak to stranger vs reclining ################  
+```{r}
+
+
+recstranger = 
+  data[,c('Generally speaking, is it rude to say more than a few words tothe stranger sitting next to you on a plane?', 
+                      'Is itrude to recline your seat on a plane?')]  
+
+recstranger= recstranger[complete.cases(recstranger),]  
+
+
+
+recstranger$`Generally speaking, is it rude to say more than a few words tothe stranger sitting next to you on a plane?` =
+  ifelse(recstranger$`Generally speaking, is it rude to say more than a few words tothe stranger sitting next to you on a plane?` ==
+           "No, not at all rude", "No", "Yes")  
+
+recstranger$`Is itrude to recline your seat on a plane?`=
+  ifelse(recstranger$`Is itrude to recline your seat on a plane?` ==
+           "No, not rude at all", "No", "Yes")  
+
+
+
+recst_tab = 
+  xtabs(~ recstranger$`Generally speaking, is it rude to say more than a few words tothe stranger sitting next to you on a plane?` +
+                    recstranger$`Is itrude to recline your seat on a plane?` )  
+
+recst_tab  
+
+
+
+mcnemar.test(recst_tab, correct=F) #test statistic: 86.503, df = 1, p-value < 2.2e-16  
+
+diffpropci.Wald.mp(85, 257, 854, 0.95) #Wald 95% C.I. of difference in marginal probabilities  
+
+##(0.1611693, 0.2416410)  
+
+
+
+## Probability of saying it is rude to speak more than a few words to a stranger next to you was 
+#16% to 24% higher than saying it is rude to recline your seat.  
+```
+
+
+
+
